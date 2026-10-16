@@ -1,2 +1,2 @@
-# zen-free
+# freezen
 opencode zen free api server
