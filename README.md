@@ -28,28 +28,27 @@ on `:8080` with no proxy. Everything else is written down in the source:
 ```yaml
 addr: ":8080"                # where to listen
 api_key: "public"            # what every upstream request is signed with
-proxy:                       # a pool, empty for a direct connection
-  - "http://127.0.0.1:8080"
-  - "https://user:pass@proxy.example:8443"
-  - "socks5://127.0.0.1:1080"
-proxy_cooldown: 60s          # how long a proxy that failed is left out
-proxy_required: false        # refuse rather than fall back to a direct connection
+proxy: ""                    # one proxy URL, empty for a direct connection
 log_level: "info"            # debug, info, warn or error
 ```
 
-`api_key` defaults to `public`, the credential Zen's free tier answers. Each
-`proxy` entry is an `http://`, `https://` or `socks5://` URL (a bare
-`host:port` is read as `http://`, and a URL may carry credentials). Set
-`log_level` to `debug` to see each request and the proxy it goes through.
+`api_key` defaults to `public`, the credential Zen's free tier answers. `proxy`
+is one `http://`, `https://` or `socks5://` URL (a bare `host:port` is read as
+`http://`, and a URL may carry credentials); only one may be named. Set
+`log_level` to `debug` to see each request and whether it went through the proxy.
 
-### The proxy pool
+### The proxy
 
-A request through the pool picks one of its proxies **at random**. When a proxy
-fails to carry a request (the connection is refused, the handshake or dial
-times out, and so on) it is set aside for `proxy_cooldown` — the request is
-tried again through another available proxy — and only then offered again. If
-every proxy is cooling down, the request falls back to a direct connection
-unless `proxy_required` is set. Model discovery goes through the same pool.
+Every upstream request goes through the one proxy the config names. When the
+proxy fails to carry a request (the connection is refused, the handshake or dial
+times out, and so on) that request is made again over a direct connection, and a
+warning says so. Naming no proxy means every request is direct. Model discovery
+goes through the same proxy.
+
+Spreading requests over several exits is a job for the proxy itself: point
+`proxy` at a local load-balancing inbound (an Xray socks inbound with a random
+balancer, say) and it decides where each request goes. Freezen only ever needs
+the one URL.
 
 
 ## Which models are served
@@ -123,7 +122,7 @@ split by what it does.
 | `main.go` | the entry point: the config file, wiring, listening |
 | `internal/config/config.go` | the YAML config file and its defaults |
 | `internal/logging/logger.go` | the leveled log the config file sets |
-| `internal/proxy/proxy.go` | the pool a request picks a proxy from |
+| `internal/proxy/proxy.go` | the proxy a request goes through, or none |
 | `internal/opencode/opencode.go` | OpenCode's version, ids and user-agent |
 | `internal/zen/provider.go` | model discovery, sending a request to Zen |
 | `internal/zen/models.go` | which models are free, what each is asked at, its limits |

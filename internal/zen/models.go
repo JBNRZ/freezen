@@ -330,9 +330,6 @@ var bootstrapProtocols = map[string]string{
 	"jev-1.13-free":                   "systemone",
 }
 
-//go:fix inline
-func boolp(value bool) *bool { return new(value) }
-
 func zero() *catalogCost {
 	amount := 0.0
 	return &catalogCost{Input: &amount, Output: &amount}

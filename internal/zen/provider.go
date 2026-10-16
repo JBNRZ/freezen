@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json/v2"
-	"errors"
 	"fmt"
 	"io"
 	"maps"
@@ -23,9 +22,9 @@ import (
 // how a reply is handed back (provider.mjs of the plugin).
 
 type Provider struct {
-	apiKey  string
-	proxies *proxy.Pool
-	log     *logging.Logger
+	apiKey string
+	proxy  *proxy.Proxy
+	log    *logging.Logger
 
 	mu        sync.Mutex
 	known     map[string]*Model
@@ -36,7 +35,7 @@ type Provider struct {
 }
 
 func New(cfg *config.Config, log *logging.Logger) (*Provider, error) {
-	pool, err := proxy.New(cfg.Proxy, cfg.ProxyCooldown.Duration(), cfg.ProxyRequired, log)
+	upstream, err := proxy.New(string(cfg.Proxy))
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +46,7 @@ func New(cfg *config.Config, log *logging.Logger) (*Provider, error) {
 	sort.Strings(ids)
 	return &Provider{
 		apiKey:    cfg.APIKey,
-		proxies:   pool,
+		proxy:     upstream,
 		log:       log,
 		metadata:  bootstrapProvider,
 		protocols: copyProtocols(bootstrapProtocols),
@@ -58,56 +57,45 @@ func New(cfg *config.Config, log *logging.Logger) (*Provider, error) {
 // APIKey is what every upstream request is signed with.
 func (p *Provider) APIKey() string { return p.apiKey }
 
-// ProxyCount is how many proxies the pool holds.
-func (p *Provider) ProxyCount() int { return p.proxies.Count() }
+// ProxyName names the proxy every request goes through, "direct" for none.
+func (p *Provider) ProxyName() string { return p.proxy.Describe() }
 
-// SetTransport points every client the provider may use at rt. It exists so a
-// test can answer requests without a network.
-func (p *Provider) SetTransport(rt http.RoundTripper) { p.proxies.SetTransport(rt) }
+// SetTransport points both clients, the proxy's and the direct one, at rt (for
+// tests).
+func (p *Provider) SetTransport(rt http.RoundTripper) {
+	p.proxy.SetThrough(rt)
+	p.proxy.SetDirect(rt)
+}
+
+// SetProxyTransport points only the proxy client at rt (for tests).
+func (p *Provider) SetProxyTransport(rt http.RoundTripper) { p.proxy.SetThrough(rt) }
 
 // SetDirectTransport points only the direct client at rt (for tests).
-func (p *Provider) SetDirectTransport(rt http.RoundTripper) { p.proxies.SetDirectTransport(rt) }
+func (p *Provider) SetDirectTransport(rt http.RoundTripper) { p.proxy.SetDirect(rt) }
 
-// SetProxyTransports points every proxy client at rt (for tests).
-func (p *Provider) SetProxyTransports(rt http.RoundTripper) { p.proxies.SetProxyTransports(rt) }
-
-// Send makes a request through a proxy picked at random from the pool: one
-// that fails to carry it is set aside, and the request is tried again through
-// another. With no proxy left it falls back to a direct connection, unless the
-// pool is required.
+// Send makes the request through the configured proxy, or over a direct
+// connection when there is none or the proxy fails to carry it.
 func (p *Provider) Send(ctx context.Context, method, url string, headers http.Header, body []byte) (*http.Response, error) {
-	var lastErr error
-	tried := map[*proxy.Entry]bool{}
-	for {
-		entry := p.proxies.Pick(tried)
-		if entry == nil {
-			break
-		}
-		tried[entry] = true
+	var proxyErr error
+	if client := p.proxy.Through(); client != nil {
 		p.log.Debugf("request %s %s through a proxy", method, url)
-		response, err := p.attempt(ctx, p.proxies.ClientFor(entry), method, url, headers, body)
+		response, err := p.attempt(ctx, client, method, url, headers, body)
 		if err == nil {
 			return response, nil
 		}
 		if ctx.Err() != nil {
 			return nil, err
 		}
-		lastErr = err
-		p.proxies.Fail(entry, err)
-	}
-	if p.proxies.Count() > 0 && p.proxies.Required() {
-		if lastErr != nil {
-			return nil, lastErr
-		}
-		return nil, errors.New("no proxy is available")
+		p.log.Warnf("proxy %s failed (%v); falling back to a direct connection", p.proxy.Describe(), err)
+		proxyErr = err
 	}
 	p.log.Debugf("request %s %s direct", method, url)
-	response, err := p.attempt(ctx, p.proxies.ClientFor(nil), method, url, headers, body)
+	response, err := p.attempt(ctx, p.proxy.Direct(), method, url, headers, body)
 	if err == nil {
 		return response, nil
 	}
-	if lastErr != nil {
-		return nil, lastErr
+	if proxyErr != nil {
+		return nil, proxyErr
 	}
 	return nil, err
 }

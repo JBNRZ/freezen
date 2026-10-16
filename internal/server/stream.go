@@ -38,10 +38,7 @@ func sseField(line string) (string, string) {
 		return line, ""
 	}
 	content := after
-	if strings.HasPrefix(content, " ") {
-		content = content[1:]
-	}
-	return before, content
+	return before, strings.TrimPrefix(content, " ")
 }
 
 type sseReader struct {

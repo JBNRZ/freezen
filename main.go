@@ -47,7 +47,7 @@ func main() {
 			provider.Discover(context.Background())
 		}
 	}()
-	logger.Infof("freezen: %s serving %s on %s (%d proxy/ies configured)", zen.ProviderID, zen.Base, cfg.Addr, provider.ProxyCount())
+	logger.Infof("freezen: %s serving %s on %s (proxy: %s)", zen.ProviderID, zen.Base, cfg.Addr, provider.ProxyName())
 	if err := httpServer.ListenAndServe(); err != nil {
 		logger.Errorf("freezen: %v", err)
 		os.Exit(1)

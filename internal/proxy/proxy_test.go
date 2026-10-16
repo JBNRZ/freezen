@@ -1,11 +1,7 @@
 package proxy
 
 import (
-	"errors"
 	"testing"
-	"time"
-
-	"freezen/internal/logging"
 )
 
 func TestParseProxyURLRejectsAnUnknownScheme(t *testing.T) {
@@ -34,58 +30,34 @@ func TestParseProxyURLSchemesAndBareHost(t *testing.T) {
 	}
 }
 
-func TestNewDropsDuplicatesAndValidatesEveryProxy(t *testing.T) {
-	pool, err := New(
-		[]string{"http://127.0.0.1:8080", "http://127.0.0.1:8080", "socks5://127.0.0.1:1080"},
-		time.Minute, false, logging.New("error"))
+func TestNewBuildsTheProxyAndHidesItsCredentials(t *testing.T) {
+	configured, err := New("socks5://user:pass@127.0.0.1:1080")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if pool.Count() != 2 {
-		t.Fatalf("the pool holds %d proxies", pool.Count())
+	if configured.Through() == nil {
+		t.Fatal("a configured proxy has no client to go through")
 	}
-	if _, err := New([]string{"ftp://127.0.0.1:21"}, time.Minute, false, logging.New("error")); err == nil {
-		t.Fatal("a pool with an invalid proxy was accepted")
+	if configured.Describe() != "socks5://127.0.0.1:1080" {
+		t.Fatalf("the proxy is described as %q", configured.Describe())
 	}
-}
 
-func TestPoolPicksRandomlyAndCoolsDownAFailedProxy(t *testing.T) {
-	pool, err := New(
-		[]string{"http://127.0.0.1:8080", "http://127.0.0.1:8081"},
-		50*time.Millisecond, false, logging.New("error"))
+	// Naming no proxy is not an error: every request is direct.
+	none, err := New("")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	// With nothing excluded, both proxies can be picked.
-	seen := map[*Entry]bool{}
-	for i := 0; i < 200; i++ {
-		entry := pool.Pick(map[*Entry]bool{})
-		if entry == nil {
-			t.Fatal("a proxy was not offered")
-		}
-		seen[entry] = true
+	if none.Through() != nil {
+		t.Fatal("an empty proxy has a client to go through")
 	}
-	if len(seen) != 2 {
-		t.Fatalf("only %d proxy/ies were ever picked", len(seen))
+	if none.Describe() != "direct" {
+		t.Fatalf("an empty proxy is described as %q", none.Describe())
+	}
+	if none.Direct() == nil {
+		t.Fatal("an empty proxy has no direct client")
 	}
 
-	// A failed proxy is set aside, so only the other one is offered.
-	failed := pool.entries[0]
-	pool.Fail(failed, errors.New("dial tcp: connection refused"))
-	for i := 0; i < 20; i++ {
-		entry := pool.Pick(map[*Entry]bool{})
-		if entry == failed {
-			t.Fatal("a proxy that failed was picked again")
-		}
-	}
-	// Excluding the second leaves nothing, so a request falls back to direct.
-	if entry := pool.Pick(map[*Entry]bool{pool.entries[1]: true}); entry != nil {
-		t.Fatalf("a cooldown proxy was offered: %v", entry)
-	}
-	// After the cooldown it is offered again.
-	time.Sleep(60 * time.Millisecond)
-	if entry := pool.Pick(map[*Entry]bool{pool.entries[1]: true}); entry != failed {
-		t.Fatalf("the proxy did not come back: %v", entry)
+	if _, err := New("ftp://127.0.0.1:21"); err == nil {
+		t.Fatal("an invalid proxy was accepted")
 	}
 }

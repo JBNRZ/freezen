@@ -16,17 +16,6 @@ type apiError struct {
 
 // ---------------------------------------------------------------- OpenAI chat
 
-type chatFunction struct {
-	Name        string         `json:"name"`
-	Description string         `json:"description,omitempty"`
-	Parameters  jsontext.Value `json:"parameters,omitempty"`
-}
-
-type chatTool struct {
-	Type     string       `json:"type,omitempty"`
-	Function chatFunction `json:"function"`
-}
-
 type chatToolCall struct {
 	Index    *int           `json:"index,omitempty"`
 	ID       string         `json:"id,omitempty"`

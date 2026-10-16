@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"go.yaml.in/yaml/v4"
 )
@@ -15,10 +14,9 @@ import (
 // or the file itself is absent.
 
 const (
-	DefaultAddr          = ":8080"
-	DefaultAPIKey        = "public"
-	DefaultProxyCooldown = time.Minute
-	DefaultLogLevel      = "info"
+	DefaultAddr     = ":8080"
+	DefaultAPIKey   = "public"
+	DefaultLogLevel = "info"
 )
 
 type Config struct {
@@ -27,70 +25,34 @@ type Config struct {
 	// APIKey is what every upstream request is signed with. Zen's free tier
 	// answers the public credential, so it defaults to "public".
 	APIKey string `yaml:"api_key"`
-	// Proxy is the pool of proxies a request may be sent through, empty for
-	// none. Each entry is an http://, https:// or socks5:// URL.
-	Proxy ProxyList `yaml:"proxy"`
-	// ProxyCooldown is how long a proxy that failed is left out of the pool.
-	ProxyCooldown Duration `yaml:"proxy_cooldown"`
-	// ProxyRequired refuses a request when no proxy is usable rather than
-	// falling back to a direct connection.
-	ProxyRequired bool `yaml:"proxy_required"`
+	// Proxy is the one proxy a request may be sent through, empty for a
+	// direct connection. It is an http://, https:// or socks5:// URL.
+	Proxy ProxyURL `yaml:"proxy"`
 	// LogLevel is one of debug, info, warn or error.
 	LogLevel string `yaml:"log_level"`
 }
 
-// ProxyList is a proxy pool written either as one string or as a list.
-type ProxyList []string
+// ProxyURL is the one proxy a request may be sent through, empty for a direct
+// connection. Only one may be named: a list is refused.
+type ProxyURL string
 
-func (p *ProxyList) UnmarshalYAML(node *yaml.Node) error {
-	switch node.Kind {
-	case yaml.ScalarNode:
-		var value string
-		if err := node.Decode(&value); err != nil {
-			return err
-		}
-		if strings.TrimSpace(value) == "" {
-			*p = nil
-			return nil
-		}
-		*p = []string{value}
-		return nil
-	case yaml.SequenceNode:
-		var values []string
-		if err := node.Decode(&values); err != nil {
-			return err
-		}
-		*p = values
-		return nil
-	default:
-		return errors.New("proxy must be a string or a list of strings")
+func (p *ProxyURL) UnmarshalYAML(node *yaml.Node) error {
+	if node.Kind == yaml.SequenceNode {
+		return errors.New("proxy must be one URL, not a list")
 	}
-}
-
-// Duration is a time.Duration written as a string ("90s", "5m").
-type Duration time.Duration
-
-func (d *Duration) UnmarshalYAML(node *yaml.Node) error {
 	var value string
 	if err := node.Decode(&value); err != nil {
 		return err
 	}
-	parsed, err := time.ParseDuration(value)
-	if err != nil {
-		return fmt.Errorf("invalid duration %q: %w", value, err)
-	}
-	*d = Duration(parsed)
+	*p = ProxyURL(strings.TrimSpace(value))
 	return nil
 }
 
-func (d Duration) Duration() time.Duration { return time.Duration(d) }
-
 func Default() *Config {
 	return &Config{
-		Addr:          DefaultAddr,
-		APIKey:        DefaultAPIKey,
-		ProxyCooldown: Duration(DefaultProxyCooldown),
-		LogLevel:      DefaultLogLevel,
+		Addr:     DefaultAddr,
+		APIKey:   DefaultAPIKey,
+		LogLevel: DefaultLogLevel,
 	}
 }
 
@@ -118,15 +80,11 @@ func Load(path string) (*Config, error) {
 	if strings.TrimSpace(parsed.APIKey) != "" {
 		cfg.APIKey = parsed.APIKey
 	}
-	if parsed.Proxy != nil {
+	if parsed.Proxy != "" {
 		cfg.Proxy = parsed.Proxy
-	}
-	if parsed.ProxyCooldown != 0 {
-		cfg.ProxyCooldown = parsed.ProxyCooldown
 	}
 	if strings.TrimSpace(parsed.LogLevel) != "" {
 		cfg.LogLevel = strings.TrimSpace(parsed.LogLevel)
 	}
-	cfg.ProxyRequired = parsed.ProxyRequired
 	return cfg, nil
 }

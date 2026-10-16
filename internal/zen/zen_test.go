@@ -135,16 +135,15 @@ func TestParseProtocolDocs(t *testing.T) {
 	}
 }
 
-func TestSendFallsBackToTheNextProxy(t *testing.T) {
+func TestSendFallsBackToDirectWhenTheProxyFails(t *testing.T) {
 	cfg := config.Default()
-	cfg.Proxy = []string{"http://127.0.0.1:8080", "http://127.0.0.1:8081"}
-	cfg.LogLevel = "error"
+	cfg.Proxy = "http://127.0.0.1:8080"
 	instance, err := New(cfg, logging.New("error"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	var direct, proxied int
-	instance.SetProxyTransports(roundTripperFunc(func(*http.Request) (*http.Response, error) {
+	instance.SetProxyTransport(roundTripperFunc(func(*http.Request) (*http.Response, error) {
 		proxied++
 		return nil, errors.New("dial tcp: connection refused")
 	}))
@@ -153,44 +152,50 @@ func TestSendFallsBackToTheNextProxy(t *testing.T) {
 		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
 	}))
 
+	for range 2 {
+		response, err := instance.Send(context.Background(), http.MethodGet, "https://example.test", http.Header{}, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		response.Body.Close()
+	}
+	// Every request tries the proxy first and falls back to the direct client.
+	if proxied != 2 || direct != 2 {
+		t.Fatalf("the proxy was used %d times, the direct client %d", proxied, direct)
+	}
+}
+
+func TestSendIsDirectWithoutAProxy(t *testing.T) {
+	instance, err := New(config.Default(), logging.New("error"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if instance.ProxyName() != "direct" {
+		t.Fatalf("the proxy is named %q", instance.ProxyName())
+	}
+	instance.SetTransport(roundTripperFunc(func(request *http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader("ok")), Request: request}, nil
+	}))
 	response, err := instance.Send(context.Background(), http.MethodGet, "https://example.test", http.Header{}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 	response.Body.Close()
-	if proxied != 2 || direct != 1 {
-		t.Fatalf("proxies were used %d times, the direct client %d", proxied, direct)
-	}
-
-	// Both proxies are now cooling down, so the next request goes straight to
-	// the direct client rather than trying either of them again.
-	response, err = instance.Send(context.Background(), http.MethodGet, "https://example.test", http.Header{}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if proxied != 2 || direct != 2 {
-		t.Fatalf("a cooling proxy was retried: proxies %d, direct %d", proxied, direct)
-	}
 }
 
-func TestSendRefusesWhenProxiesAreRequired(t *testing.T) {
+func TestSendReportsTheProxyErrorWhenBothFail(t *testing.T) {
 	cfg := config.Default()
-	cfg.Proxy = []string{"http://127.0.0.1:8080"}
-	cfg.ProxyRequired = true
+	cfg.Proxy = "http://127.0.0.1:8080"
 	instance, err := New(cfg, logging.New("error"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	instance.SetProxyTransports(roundTripperFunc(func(*http.Request) (*http.Response, error) {
-		return nil, errors.New("dial tcp: connection refused")
+	instance.SetTransport(roundTripperFunc(func(*http.Request) (*http.Response, error) {
+		return nil, errors.New("the proxy is down")
 	}))
-	instance.SetDirectTransport(roundTripperFunc(func(*http.Request) (*http.Response, error) {
-		t.Fatal("a required pool fell back to a direct connection")
-		return nil, nil
-	}))
-	if _, err := instance.Send(context.Background(), http.MethodGet, "https://example.test", http.Header{}, nil); err == nil {
-		t.Fatal("a required pool without a usable proxy did not fail")
+	_, err = instance.Send(context.Background(), http.MethodGet, "https://example.test", http.Header{}, nil)
+	if err == nil || !strings.Contains(err.Error(), "the proxy is down") {
+		t.Fatalf("the error is %v", err)
 	}
 }
 
