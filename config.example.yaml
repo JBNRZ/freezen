@@ -1,0 +1,32 @@
+# freezen configuration. Every field is optional; the value shown is the
+# default, so an empty file (or no file at all) serves on :8080 with no proxy.
+#
+# Pass this file with:  freezen -c config.yaml
+
+# Address to listen on.
+addr: ":8080"
+
+# What every upstream request to Zen is signed with. Zen's free tier answers
+# the public credential, so the default works without an account.
+api_key: "public"
+
+# A pool of proxies a request is sent through, picked at random each time.
+# Empty (the default) means a direct connection. Each entry is an http://,
+# https:// or socks5:// URL; a bare host:port is read as http:// and a URL may
+# carry credentials (http://user:pass@host:port).
+proxy: []
+# proxy:
+#   - "http://127.0.0.1:8080"
+#   - "https://user:pass@proxy.example:8443"
+#   - "socks5://127.0.0.1:1080"
+
+# How long a proxy that fails to carry a request is left out of the pool
+# before it is offered again.
+proxy_cooldown: 60s
+
+# When true, a request fails rather than falling back to a direct connection
+# while every proxy is cooling down.
+proxy_required: false
+
+# How much to log: debug, info, warn or error.
+log_level: "info"
