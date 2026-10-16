@@ -232,7 +232,7 @@ func (s *Server) relay(w http.ResponseWriter, response *http.Response, protocol 
 	case "chat":
 		var completion chatCompletion
 		if err := json.Unmarshal(raw, &completion); err != nil {
-			failureMessage = "Invalid JSON in upstream response"
+			failureMessage = "invalid JSON in upstream response"
 			break
 		}
 		if err := guardChatCompletion(&completion, check); err != nil {
@@ -243,7 +243,7 @@ func (s *Server) relay(w http.ResponseWriter, response *http.Response, protocol 
 	case "responses":
 		var object responseObject
 		if err := json.Unmarshal(raw, &object); err != nil {
-			failureMessage = "Invalid JSON in upstream response"
+			failureMessage = "invalid JSON in upstream response"
 			break
 		}
 		if err := guardResponseObject(&object, check); err != nil {
@@ -254,7 +254,7 @@ func (s *Server) relay(w http.ResponseWriter, response *http.Response, protocol 
 	default:
 		var message anthropicMessage
 		if err := json.Unmarshal(raw, &message); err != nil {
-			failureMessage = "Invalid JSON in upstream response"
+			failureMessage = "invalid JSON in upstream response"
 			break
 		}
 		if err := guardAnthropicMessage(&message, check); err != nil {

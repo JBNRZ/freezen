@@ -36,7 +36,7 @@ var coreToolParameter = map[string]string{
 
 const notAvailableDescription = "Not available. Never call this tool."
 
-var errNotAnObject = errors.New("Expected a JSON request object")
+var errNotAnObject = errors.New("expected a JSON request object")
 
 // readRequestBody decodes the request body, keeping every field so nothing an
 // agent sends is dropped on the way to Zen.

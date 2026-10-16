@@ -163,7 +163,7 @@ func guardChatMessage(message *chatMessage, check nameChecker) (bool, []string, 
 		kept := make([]chatToolCall, 0, len(message.ToolCalls))
 		for _, call := range message.ToolCalls {
 			if call.Type != "" && call.Type != "function" {
-				return changed, notes, failf("Unsupported upstream tool call")
+				return changed, notes, failf("unsupported upstream tool call")
 			}
 			name, ok := check(call.Function.Name)
 			if !ok {
@@ -213,7 +213,7 @@ func guardResponseOutput(output []responseItem, check nameChecker) (bool, int, i
 	for index := range output {
 		item := &output[index]
 		if strings.HasSuffix(item.Type, "_call") && !isResponseCall(item) {
-			return changed, kept, left, failf("Unsupported upstream tool call type")
+			return changed, kept, left, failf("unsupported upstream tool call type")
 		}
 		if !isResponseCall(item) {
 			continue

@@ -18,8 +18,8 @@ const maxEventBytes = 32 << 20
 // The reader's structural failures are guard failures: the plugin throws them
 // as GuardErrors, which a streaming reply answers with a protocol error event
 // rather than by tearing the connection down.
-var errEventTooLarge = failf("Upstream SSE event exceeds the 32 MiB buffer limit")
-var errInsideEvent = failf("Upstream SSE ended inside an event")
+var errEventTooLarge = failf("upstream SSE event exceeds the 32 MiB buffer limit")
+var errInsideEvent = failf("upstream SSE ended inside an event")
 
 // --------------------------------------------------------------- SSE reading
 
@@ -191,12 +191,12 @@ func (b *chatToolBuffer) pendingCount() int { return len(b.pending) }
 func (b *chatToolBuffer) charge(state *pendingTools, value any) error {
 	encoded, err := json.Marshal(value)
 	if err != nil {
-		return failf("Unsupported upstream tool delta")
+		return failf("unsupported upstream tool delta")
 	}
 	b.size += len(encoded)
 	state.bytes += len(encoded)
 	if b.size > maxEventBytes {
-		return failf("Pending upstream tools exceed the 32 MiB buffer limit")
+		return failf("pending upstream tools exceed the 32 MiB buffer limit")
 	}
 	return nil
 }
@@ -285,14 +285,14 @@ func (b *chatToolBuffer) apply(chunk *chatCompletion, check nameChecker) (*chatC
 		state := b.stateFor(choice.Index, chunk)
 		for _, fragment := range delta.ToolCalls {
 			if fragment.Type != "" && fragment.Type != "function" {
-				return nil, false, failf("Unsupported upstream tool delta")
+				return nil, false, failf("unsupported upstream tool delta")
 			}
 			if err := b.charge(state, fragment); err != nil {
 				return nil, false, err
 			}
 			key, ok := toolIndex(fragment.Index)
 			if !ok {
-				return nil, false, failf("Invalid upstream tool index")
+				return nil, false, failf("invalid upstream tool index")
 			}
 			previous, seen := state.calls[key]
 			if !seen {
@@ -736,7 +736,7 @@ func (s *guardState) guardEvent(frame *sseFrame) (out []byte, failed bool, err e
 	case "chat":
 		var chunk chatCompletion
 		if err := json.Unmarshal([]byte(frame.text()), &chunk); err != nil {
-			return nil, false, failf("Invalid JSON in upstream response")
+			return nil, false, failf("invalid JSON in upstream response")
 		}
 		if chunk.ID != "" {
 			s.replyID = chunk.ID
@@ -762,7 +762,7 @@ func (s *guardState) guardEvent(frame *sseFrame) (out []byte, failed bool, err e
 	case "responses":
 		var event responsesEvent
 		if err := json.Unmarshal([]byte(frame.text()), &event); err != nil {
-			return nil, false, failf("Invalid JSON in upstream response")
+			return nil, false, failf("invalid JSON in upstream response")
 		}
 		typ := event.Type
 		if typ == "" {
@@ -796,7 +796,7 @@ func (s *guardState) guardEvent(frame *sseFrame) (out []byte, failed bool, err e
 	default:
 		var event anthropicEvent
 		if err := json.Unmarshal([]byte(frame.text()), &event); err != nil {
-			return nil, false, failf("Invalid JSON in upstream response")
+			return nil, false, failf("invalid JSON in upstream response")
 		}
 		typ := event.Type
 		if typ == "" {
@@ -871,7 +871,7 @@ func guardStream(source io.Reader, protocol string, check nameChecker, endCutSho
 				if unfinished {
 					came = append(came, "a tool call unfinished")
 				}
-				return fail(&guardError{message: "Upstream SSE ended without a completion marker (" +
+				return fail(&guardError{message: "upstream SSE ended without a completion marker (" +
 					strings.Join(came, ", ") + ")"})
 			}
 			return nil
@@ -885,7 +885,7 @@ func guardStream(source io.Reader, protocol string, check nameChecker, endCutSho
 		}
 		if frame.name != "error" && trimmed == "[DONE]" {
 			if protocol != "chat" {
-				return fail(failf("Unexpected upstream completion marker"))
+				return fail(failf("unexpected upstream completion marker"))
 			}
 			final, err := state.buffer.finish(check)
 			if err != nil {

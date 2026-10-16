@@ -75,7 +75,7 @@ func (c *chatCollapse) apply(chunk *chatCompletion) error {
 	}
 	for _, part := range chunk.Choices {
 		if part.Index < 0 {
-			return errors.New("Invalid stream item index")
+			return errors.New("invalid stream item index")
 		}
 		choice, ok := c.choices[part.Index]
 		if !ok {
@@ -111,7 +111,7 @@ func (c *chatCollapse) apply(chunk *chatCompletion) error {
 			for _, fragment := range delta.ToolCalls {
 				key, ok := toolIndex(fragment.Index)
 				if !ok {
-					return errors.New("Invalid stream item index")
+					return errors.New("invalid stream item index")
 				}
 				call, seen := calls[key]
 				if !seen {
@@ -399,7 +399,7 @@ func (c *anthropicCollapse) apply(event *anthropicEvent, typ string) error {
 		position := eventIndex(event.Index)
 		block, ok := c.blocks[position]
 		if !ok {
-			return errors.New("Content delta without a content block")
+			return errors.New("content delta without a content block")
 		}
 		if event.Delta == nil {
 			return nil
@@ -435,7 +435,7 @@ func (c *anthropicCollapse) finish() (*anthropicMessage, error) {
 	for _, position := range sortedIntKeys(c.arguments) {
 		var input any
 		if err := json.Unmarshal([]byte(c.arguments[position]), &input); err != nil {
-			return nil, errors.New("Invalid tool input JSON in upstream stream")
+			return nil, errors.New("invalid tool input JSON in upstream stream")
 		}
 		block, ok := c.blocks[position]
 		if !ok {
@@ -483,16 +483,16 @@ func (s *collapseState) apply(frame *sseFrame) error {
 	case "chat":
 		var chunk chatCompletion
 		if err := json.Unmarshal([]byte(frame.text()), &chunk); err != nil {
-			return errors.New("Invalid JSON in upstream SSE event")
+			return errors.New("invalid JSON in upstream SSE event")
 		}
 		if chunk.Error != nil {
-			return errors.New(collapseErrorMessage(chunk.Error, "Upstream stream failed"))
+			return errors.New(collapseErrorMessage(chunk.Error, "upstream stream failed"))
 		}
 		return s.chat.apply(&chunk)
 	case "responses":
 		var event responsesEvent
 		if err := json.Unmarshal([]byte(frame.text()), &event); err != nil {
-			return errors.New("Invalid JSON in upstream SSE event")
+			return errors.New("invalid JSON in upstream SSE event")
 		}
 		typ := event.Type
 		if typ == "" {
@@ -500,7 +500,7 @@ func (s *collapseState) apply(frame *sseFrame) error {
 		}
 		if event.Error != nil || typ == "error" || typ == "response.failed" ||
 			(event.Response != nil && event.Response.Status == "failed") {
-			return errors.New(collapseErrorMessage(event.Error, "Upstream stream failed"))
+			return errors.New(collapseErrorMessage(event.Error, "upstream stream failed"))
 		}
 		if s.completed {
 			return nil
@@ -515,14 +515,14 @@ func (s *collapseState) apply(frame *sseFrame) error {
 	default:
 		var event anthropicEvent
 		if err := json.Unmarshal([]byte(frame.text()), &event); err != nil {
-			return errors.New("Invalid JSON in upstream SSE event")
+			return errors.New("invalid JSON in upstream SSE event")
 		}
 		typ := event.Type
 		if typ == "" {
 			typ = frame.name
 		}
 		if event.Error != nil || typ == "error" {
-			return errors.New(collapseErrorMessage(event.Error, "Upstream stream failed"))
+			return errors.New(collapseErrorMessage(event.Error, "upstream stream failed"))
 		}
 		if s.completed {
 			return nil
@@ -557,7 +557,7 @@ func collapse(protocol string, source io.Reader) (any, string) {
 	for failure == "" {
 		frame, err := reader.next()
 		if err != nil {
-			failure = collapseErrorMessage(err, "Upstream stream failed")
+			failure = collapseErrorMessage(err, "upstream stream failed")
 			break
 		}
 		if frame == nil {
@@ -566,7 +566,7 @@ func collapse(protocol string, source io.Reader) (any, string) {
 		if frame.name == "error" {
 			var value any
 			if json.Unmarshal([]byte(frame.text()), &value) == nil {
-				failure = collapseErrorMessage(value, "Upstream stream failed")
+				failure = collapseErrorMessage(value, "upstream stream failed")
 			} else {
 				failure = frame.text()
 			}
@@ -583,19 +583,19 @@ func collapse(protocol string, source io.Reader) (any, string) {
 			continue
 		}
 		if err := state.apply(frame); err != nil {
-			failure = collapseErrorMessage(err, "Invalid upstream SSE event")
+			failure = collapseErrorMessage(err, "invalid upstream SSE event")
 			break
 		}
 	}
 	if failure == "" && !state.completed {
-		failure = "Upstream SSE ended without a completion marker"
+		failure = "upstream SSE ended without a completion marker"
 	}
 	if failure != "" {
 		return nil, failure
 	}
 	body, err := state.finish()
 	if err != nil {
-		return nil, collapseErrorMessage(err, "Upstream stream failed")
+		return nil, collapseErrorMessage(err, "upstream stream failed")
 	}
 	return body, ""
 }

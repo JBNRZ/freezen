@@ -136,7 +136,7 @@ func (p *Provider) readRemote(ctx context.Context, url string, headers http.Head
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("Model discovery returned HTTP %d", response.StatusCode)
+		return nil, fmt.Errorf("model discovery returned HTTP %d", response.StatusCode)
 	}
 	return io.ReadAll(io.LimitReader(response.Body, 32<<20))
 }

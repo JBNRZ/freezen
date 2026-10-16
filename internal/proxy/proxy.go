@@ -85,7 +85,7 @@ func newClient(transport *http.Transport) *http.Client {
 	return &http.Client{
 		Transport: transport,
 		CheckRedirect: func(*http.Request, []*http.Request) error {
-			return errors.New("Zen answered with a redirect")
+			return errors.New("the reply from Zen was a redirect")
 		},
 	}
 }
