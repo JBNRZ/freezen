@@ -32,10 +32,13 @@ proxy: ""                    # one proxy URL, empty for a direct connection
 log_level: "info"            # debug, info, warn or error
 ```
 
-`api_key` defaults to `public`, the credential Zen's free tier answers. `proxy`
-is one `http://`, `https://` or `socks5://` URL (a bare `host:port` is read as
-`http://`, and a URL may carry credentials); only one may be named. Set
-`log_level` to `debug` to see each request and whether it went through the proxy.
+`api_key` defaults to `public`, the shared credential Zen's free tier answers. A
+key made under your own OpenCode account is sent as it is — for model discovery
+too — so it is your own account's and not the free one; leave the field alone
+unless that is what you mean. `proxy` is one `http://`, `https://` or
+`socks5://` URL (a bare `host:port` is read as `http://`, and a URL may carry
+credentials); only one may be named. Set `log_level` to `debug` to see each
+request and whether it went through the proxy.
 
 ### The proxy
 
@@ -124,6 +127,7 @@ split by what it does.
 | `internal/logging/logger.go` | the leveled log the config file sets |
 | `internal/proxy/proxy.go` | the proxy a request goes through, or none |
 | `internal/opencode/opencode.go` | OpenCode's version, ids and user-agent |
+| `internal/zen/zen.go` | the plugin version this server ports, Zen's base URL and timings |
 | `internal/zen/provider.go` | model discovery, sending a request to Zen |
 | `internal/zen/models.go` | which models are free, what each is asked at, its limits |
 | `internal/zen/headers.go` | the headers Zen is asked with |
@@ -141,4 +145,6 @@ go test ./...
 ```
 
 The logic follows
-[`@magpie-community/opencode-zen-free-auth`](https://github.com/magpie-community/plugins/tree/main/packages/zen-free).
+[`@magpie-community/opencode-zen-free-auth`](https://github.com/magpie-community/plugins/tree/main/packages/zen-free)
+release 0.1.10, whose number this build takes as its own version: `freezen
+0.1.10` is what it logs on start, and `GET /` answers it.

@@ -59,6 +59,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	models := s.provider.FreeModelNames()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"name":     "freezen",
+		"version":  zen.PluginVersion,
 		"provider": zen.ProviderID,
 		"base":     zen.Base,
 		"endpoints": []string{

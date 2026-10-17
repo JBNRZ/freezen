@@ -5,6 +5,11 @@ import "time"
 // Where Zen's free models answer, what each model is, and where the docs say
 // what each model is asked at (provider.mjs, models.mjs).
 
+// PluginVersion is the release of the plugin this server ports
+// (@magpie-community/opencode-zen-free-auth), and so this server's own version:
+// the two are bumped together, so a build says which upstream it follows.
+const PluginVersion = "0.1.10"
+
 const (
 	// Base is Zen's inference API, where its free models answer: since
 	// mid-October 2026 the same request OpenCode sends is answered
